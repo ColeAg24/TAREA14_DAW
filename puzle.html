@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Rompecabezas Deslizable</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #fff5f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 30px 20px;
+    }
+
+    h1 {
+      color: #b30000;
+      font-size: 28px;
+      margin-bottom: 20px;
+      text-shadow: 1px 1px 2px #fff;
+    }
+
+    main {
+      background-color: #8b0000;
+      border-radius: 20px;
+      padding: 15px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    }
+
+    .puzzle-container {
+      display: grid;
+      grid-template-columns: repeat(4, 65px);
+      gap: 6px;
+      justify-content: center;
+      background-color: #911a1a;
+      padding: 12px;
+      border-radius: 10px;
+    }
+
+    .puzzle-container button {
+      width: 65px;
+      height: 65px;
+      font-size: 20px;
+      font-weight: bold;
+      color: gold;
+      background-color: #e69165;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .puzzle-container button.empty {
+      background-color: #c00000;
+      color: transparent;
+    }
+
+    .puzzle-container button:hover:not(.empty) {
+      transform: scale(1.05);
+    }
+
+    footer.game-info {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      margin-top: 20px;
+      padding: 12px;
+      background-color: #8b0000;
+      color: gold;
+      font-weight: bold;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    #boton-jugar {
+      padding: 6px 14px;
+      background-color: gold;
+      color: #8b0000;
+      border: none;
+      border-radius: 10px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+      transition: background-color 0.2s;
+    }
+
+    #boton-jugar:hover {
+      background-color: #ffd700;
+    }
+
+    .game-finished {
+      margin-top: 15px;
+      background-color: #28a745;
+      color: white;
+      padding: 12px;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Rompecabezas Deslizable</h1>
+  <main>
+    <div class="puzzle-container" id="rompecabezas"></div>
+    <footer class="game-info">
+      <button id="boton-jugar">Jugar</button>
+      <span>Movimientos: <strong id="contador-movimientos">0</strong></span>
+      <span>Tiempo: <strong id="contador-tiempo">0</strong>s</span>
+    </footer>
+    <section class="game-finished" id="juego-finalizado">
+      <h2>¡Completado en <span id="tiempo-final">0</span> segundos!</h2>
+    </section>
+  </main>
+
+  <script>
+    class RompecabezasDeslizable {
+      constructor() {
+        this.tablero = [];
+        this.posicionVacia = { fila: 3, columna: 3 };
+        this.movimientos = 0;
+        this.segundos = 0;
+        this.temporizador = null;
+        this.jugando = false;
+
+        this.contenedor = document.getElementById('rompecabezas');
+        this.contadorMovimientos = document.getElementById('contador-movimientos');
+        this.contadorTiempo = document.getElementById('contador-tiempo');
+        this.botonJugar = document.getElementById('boton-jugar');
+        this.seccionFinalizado = document.getElementById('juego-finalizado');
+        this.mostrarTiempoFinal = document.getElementById('tiempo-final');
+
+        this.inicializarJuego();
+        this.configurarEventos();
+      }
+
+      inicializarJuego() {
+        this.contenedor.innerHTML = '';
+        for (let i = 0; i < 16; i++) {
+          const ficha = document.createElement('button');
+          ficha.addEventListener('click', () => this.manejarClicFicha(i));
+          this.contenedor.appendChild(ficha);
+        }
+        this.fichas = Array.from(this.contenedor.children);
+      }
+
+      configurarEventos() {
+        this.botonJugar.addEventListener('click', () => {
+          this.jugando ? this.reiniciarJuego() : this.iniciarJuego();
+        });
+      }
+
+      iniciarJuego() {
+        this.jugando = true;
+        this.movimientos = 0;
+        this.segundos = 0;
+        this.contadorMovimientos.textContent = '0';
+        this.contadorTiempo.textContent = '0';
+        this.seccionFinalizado.style.display = 'none';
+        this.botonJugar.textContent = 'Reiniciar';
+
+        const numeros = Array.from({ length: 15 }, (_, i) => i + 1);
+        numeros.push(null);
+
+        for (let i = numeros.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [numeros[i], numeros[j]] = [numeros[j], numeros[i]];
+        }
+
+        this.tablero = [];
+        for (let i = 0; i < 4; i++) {
+          this.tablero[i] = [];
+          for (let j = 0; j < 4; j++) {
+            const indice = i * 4 + j;
+            const valor = numeros[indice];
+            this.tablero[i][j] = valor;
+            if (valor === null) {
+              this.posicionVacia = { fila: i, columna: j };
+            }
+          }
+        }
+
+        this.actualizarTablero();
+
+        clearInterval(this.temporizador);
+        this.temporizador = setInterval(() => {
+          this.segundos++;
+          this.contadorTiempo.textContent = this.segundos;
+        }, 1000);
+      }
+
+      reiniciarJuego() {
+        clearInterval(this.temporizador);
+        this.jugando = false;
+        this.botonJugar.textContent = 'Jugar';
+        this.movimientos = 0;
+        this.segundos = 0;
+        this.contadorMovimientos.textContent = '0';
+        this.contadorTiempo.textContent = '0';
+        this.seccionFinalizado.style.display = 'none';
+
+        this.fichas.forEach(ficha => {
+          ficha.textContent = '';
+          ficha.className = '';
+        });
+      }
+
+      manejarClicFicha(indice) {
+        if (!this.jugando) return;
+
+        const fila = Math.floor(indice / 4);
+        const columna = indice % 4;
+
+        if ((Math.abs(fila - this.posicionVacia.fila) === 1 && columna === this.posicionVacia.columna) ||
+            (Math.abs(columna - this.posicionVacia.columna) === 1 && fila === this.posicionVacia.fila)) {
+
+          this.tablero[this.posicionVacia.fila][this.posicionVacia.columna] = this.tablero[fila][columna];
+          this.tablero[fila][columna] = null;
+          this.posicionVacia = { fila, columna };
+
+          this.movimientos++;
+          this.contadorMovimientos.textContent = this.movimientos;
+
+          this.actualizarTablero();
+
+          if (this.estaResuelto()) {
+            this.finalizarJuego();
+          }
+        }
+      }
+
+      actualizarTablero() {
+        for (let i = 0; i < 4; i++) {
+          for (let j = 0; j < 4; j++) {
+            const indice = i * 4 + j;
+            const valor = this.tablero[i][j];
+            const ficha = this.fichas[indice];
+
+            if (valor === null) {
+              ficha.textContent = '';
+              ficha.className = 'empty';
+            } else {
+              ficha.textContent = valor;
+              ficha.className = '';
+            }
+          }
+        }
+      }
+
+      estaResuelto() {
+        let valorEsperado = 1;
+        for (let i = 0; i < 4; i++) {
+          for (let j = 0; j < 4; j++) {
+            if (i === 3 && j === 3) {
+              if (this.tablero[i][j] !== null) return false;
+            } else {
+              if (this.tablero[i][j] !== valorEsperado) return false;
+              valorEsperado++;
+            }
+          }
+        }
+        return true;
+      }
+
+      finalizarJuego() {
+        clearInterval(this.temporizador);
+        this.jugando = false;
+        this.botonJugar.textContent = 'Jugar';
+        this.mostrarTiempoFinal.textContent = this.segundos;
+        this.seccionFinalizado.style.display = 'block';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      new RompecabezasDeslizable();
+    });
+  </script>
+</body>
+</html>
